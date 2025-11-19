@@ -47,18 +47,17 @@ cd <nombre-del-repo>
 npm install
 
 
-## 4. Instalar paquetes específicos usados en el proyecto
-npx expo install expo-camera
-npx expo install expo-location
-npx expo install react-native-maps
-npx expo install @expo/vector-icons
-npx expo install react-native-safe-area-context
-npm install react-native-uuid
+### 4. Instalar paquetes específicos usados en el proyecto
 
+1. `npx expo install expo-camera`
+2. `npx expo install expo-location`
+3. `npx expo install react-native-maps`
+4. `npx expo install @expo/vector-icons`
+5. `npx expo install react-native-safe-area-context`
+6. `npm install react-native-uuid`
 
 ## 5. Ejecutar la app
 npx expo start
-
 
 
 ## 🧠 Consideraciones
