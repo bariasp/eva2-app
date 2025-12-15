@@ -1,193 +1,115 @@
-import { useState, useRef } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Button,
-  StyleSheet,
-  Alert,
-  Image,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { useState } from 'react';
+import { router } from 'expo-router';
 import { useTareas } from '../../context/TareasContext';
-import { useRouter } from 'expo-router';
-import uuid from 'react-native-uuid';
-import {
-  CameraView,
-  useCameraPermissions,
-  CameraCapturedPicture,
-} from 'expo-camera';
-import * as Location from 'expo-location';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../useTheme';
 
 export default function CrearTareaScreen() {
+  const { agregarTarea, loading } = useTareas();
+
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [imagenUri, setImagenUri] = useState<string | null>(null);
-  const [ubicacion, setUbicacion] = useState<{ latitud: number; longitud: number } | null>(null);
-  const [mostrarCamara, setMostrarCamara] = useState(false);
-  const [cargandoUbicacion, setCargandoUbicacion] = useState(false);
-  const camaraRef = useRef<CameraView>(null);
-  const { agregarTarea } = useTareas();
-  const router = useRouter();
-  const [permisoCamara, solicitarPermisoCamara] = useCameraPermissions();
-  const { theme } = useTheme();
 
-  const tomarFoto = async () => {
-    if (camaraRef.current) {
-      const foto: CameraCapturedPicture = await camaraRef.current.takePictureAsync();
-      setImagenUri(foto.uri);
-      setMostrarCamara(false);
-    }
-  };
-
-  const obtenerUbicacion = async (): Promise<{ latitud: number; longitud: number } | null> => {
-    setCargandoUbicacion(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permiso denegado', 'No se pudo obtener la ubicación');
-        return null;
-      }
-
-      const location = await Location.getCurrentPositionAsync({});
-      return {
-        latitud: location.coords.latitude,
-        longitud: location.coords.longitude,
-      };
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo obtener la ubicación');
-      return null;
-    } finally {
-      setCargandoUbicacion(false);
-    }
-  };
-
-  const handleCrear = async () => {
+  const guardarTarea = async () => {
     if (!titulo.trim()) {
       Alert.alert('Error', 'El título es obligatorio');
       return;
     }
 
-    let ubicacionFinal = ubicacion;
+    try {
+      await agregarTarea({
+        titulo,
+        descripcion: descripcion || undefined,
+      });
 
-    if (!ubicacionFinal) {
-      ubicacionFinal = await obtenerUbicacion();
-      if (!ubicacionFinal) return;
+      router.back(); 
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo guardar la tarea');
     }
-
-    await agregarTarea({
-      id: String(uuid.v4()),
-      titulo,
-      descripcion,
-      imagenUri: imagenUri ?? undefined,
-      ubicacion: ubicacionFinal,
-    });
-
-    setTitulo('');
-    setDescripcion('');
-    setImagenUri(null);
-    setUbicacion(null);
-    router.push('/tareas');
   };
 
-  if (mostrarCamara) {
-    if (!permisoCamara?.granted) {
-      return (
-        <View style={[styles.container, { backgroundColor: theme.background }]}>
-          <Text style={{ color: theme.text }}>
-            Se necesita permiso para usar la cámara
-          </Text>
-          <Button title="Solicitar permiso" onPress={solicitarPermisoCamara} />
-        </View>
-      );
-    }
-
-    return (
-      <CameraView style={{ flex: 1 }} ref={camaraRef} facing="back">
-        <View style={{ flex: 1, justifyContent: 'flex-end', marginBottom: 20 }}>
-          <Button title="Tomar foto" onPress={tomarFoto} />
-        </View>
-      </CameraView>
-    );
-  }
-
   return (
-    <SafeAreaView
-      style={[styles.safeArea, { backgroundColor: theme.background }]}
-    >
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <Text style={[styles.label, { color: theme.text }]}>Título</Text>
+    <View style={styles.container}>
+      <View style={styles.card}>
+        <Text style={styles.title}>Nueva Tarea</Text>
+
         <TextInput
-          style={[
-            styles.input,
-            { borderColor: theme.border, color: theme.text },
-          ]}
-          placeholder="Escribe el título"
-          placeholderTextColor={theme.textSecondary}
+          placeholder="Título"
+          placeholderTextColor="#888"
           value={titulo}
           onChangeText={setTitulo}
+          style={styles.input}
         />
 
-        <Text style={[styles.label, { color: theme.text }]}>Descripción</Text>
         <TextInput
-          style={[
-            styles.input,
-            styles.textArea,
-            { borderColor: theme.border, color: theme.text },
-          ]}
-          placeholder="Escribe la descripción"
-          placeholderTextColor={theme.textSecondary}
+          placeholder="Descripción (opcional)"
+          placeholderTextColor="#888"
           value={descripcion}
           onChangeText={setDescripcion}
+          style={[styles.input, styles.textArea]}
           multiline
-          numberOfLines={4}
         />
 
-        {imagenUri && (
-          <Image
-            source={{ uri: imagenUri }}
-            style={{ width: '100%', height: 200, marginBottom: 10 }}
-          />
-        )}
-
-        <Button title="Abrir cámara" onPress={() => setMostrarCamara(true)} />
-        <Button title="Crear tarea" onPress={handleCrear} />
-
-        {cargandoUbicacion && (
-          <ActivityIndicator
-            style={{ marginTop: 10 }}
-            color={theme.primary}
-          />
-        )}
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={guardarTarea}
+          disabled={loading}
+        >
+          <Text style={styles.buttonText}>
+            {loading ? 'Guardando...' : 'Guardar'}
+          </Text>
+        </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f5f5f5', // se sobreescribe con theme.background
-  },
   container: {
     flex: 1,
+    backgroundColor: '#0b0b0b',
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
-    gap: 12,
   },
-  label: {
-    fontWeight: 'bold',
-    fontSize: 16,
+  card: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#121212',
+    borderRadius: 16,
+    padding: 24,
+  },
+  title: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 16,
+    textAlign: 'center',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 10,
+    backgroundColor: '#1c1c1c',
+    color: '#fff',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 12,
   },
   textArea: {
-    height: 100,
+    height: 80,
     textAlignVertical: 'top',
+  },
+  button: {
+    backgroundColor: '#1e90ff',
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
   },
 });

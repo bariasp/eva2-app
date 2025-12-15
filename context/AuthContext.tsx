@@ -1,64 +1,56 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { loginRequest } from '../services/auth.service';
 
-type User = {
-  id: string;
-  nombre: string;
-};
+const TOKEN_KEY = '@auth_token';
 
-type AuthContextType = {
-  user: User | null;
-  loading: boolean;
-  login: (nombre: string) => Promise<void>;
+interface AuthContextType {
+  token: string | null;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-};
+}
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
-const SESSION_KEY = '@session_user';
-
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadSession = async () => {
-      try {
-        const raw = await AsyncStorage.getItem(SESSION_KEY);
-        if (raw) {
-          const savedUser: User = JSON.parse(raw);
-          setUser(savedUser);
-        }
-      } finally {
-        setLoading(false);
+    const loadToken = async () => {
+      const storedToken = await AsyncStorage.getItem(TOKEN_KEY);
+      if (storedToken) {
+        setToken(storedToken);
       }
     };
-    loadSession();
+    loadToken();
   }, []);
 
-  const login = async (nombre: string) => {
-    const newUser: User = {
-      id: nombre.toLowerCase().replace(/\s+/g, '_'),
-      nombre,
-    };
-    setUser(newUser);
-    await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(newUser));
-  };
+const login = async (email: string, password: string) => {
+  const response = await loginRequest(email, password);
+
+  console.log('LOGIN RESPONSE FINAL', response);
+
+  const tokenFromApi = response.token;
+
+  if (!tokenFromApi) {
+    throw new Error('Token no recibido desde la API');
+  }
+
+  await AsyncStorage.setItem(TOKEN_KEY, tokenFromApi);
+  setToken(tokenFromApi);
+};
+
 
   const logout = async () => {
-    setUser(null);
-    await AsyncStorage.removeItem(SESSION_KEY);
+    await AsyncStorage.removeItem(TOKEN_KEY);
+    setToken(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ token, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth debe usarse dentro de AuthProvider');
-  return ctx;
-};
+export const useAuth = () => useContext(AuthContext);

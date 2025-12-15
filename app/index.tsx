@@ -1,159 +1,98 @@
-import { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  ImageBackground,
-} from 'react-native';
-import { useTheme } from './useTheme';
-import { useRouter } from 'expo-router';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from "expo-router";
 
 export default function LoginScreen() {
-  const { theme, isDark } = useTheme();
-  const router = useRouter();
-  const { user, loading, login } = useAuth();
-  const [nombre, setNombre] = useState('');
-  const [cargandoLogin, setCargandoLogin] = useState(false);
+  const { login } = useAuth();
 
-
-  const backgroundImage = isDark
-    ? require('../assets/bg-night.jpg')
-    : require('../assets/bg-day.jpg');
-
-  useEffect(() => {
-    if (!loading && user) {
-      router.replace('/tareas');
-    }
-  }, [loading, user]);
-
-  if (loading) {
-    return (
-      <ImageBackground
-        source={backgroundImage}
-        style={styles.background}
-        resizeMode="cover"
-      >
-        <View style={styles.cargandoContainer}>
-          <ActivityIndicator size="large" color={theme.primary} />
-        </View>
-      </ImageBackground>
-    );
-  }
-
-  if (user) {
-    return null;
-  }
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async () => {
-    if (!nombre.trim()) return;
+  if (!email || !password) {
+    setError('Debes ingresar email y contraseña');
+    return;
+  }
 
-    setCargandoLogin(true);
-    await login(nombre.trim());
-    setCargandoLogin(false);
-
-    router.replace('/tareas');
-  };
-
+  try {
+    setLoading(true);
+    setError(null);
+    await login(email.trim(), password);
+    router.replace("/(tabs)");
+  } catch (e: any) {
+    setError(e.message || 'Error al iniciar sesión');
+  } finally {
+    setLoading(false);
+  }
+};
   return (
-    <ImageBackground
-      source={backgroundImage}
-      style={styles.background}
-      resizeMode="cover"
-    >
-      <View style={styles.overlay}>
-        <SafeAreaView style={styles.safeArea}>
-          <View style={[styles.container, { backgroundColor: theme.card }]}>
-            <Text style={[styles.titulo, { color: theme.text }]}>
-              Iniciar Sesión
-            </Text>
+    <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
+      <Text style={{ fontSize: 28, fontWeight: '600', marginBottom: 24 }}>
+        Iniciar Sesión
+      </Text>
 
-            <Text style={[styles.label, { color: theme.text }]}>
-              Nombre de usuario
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  borderColor: theme.border,
-                  color: theme.text,
-                  backgroundColor: theme.background,
-                },
-              ]}
-              placeholder="Ej: Tu nombre"
-              placeholderTextColor={theme.textSecondary}
-              value={nombre}
-              onChangeText={setNombre}
-            />
+      {/* EMAIL */}
+      <Text style={{ marginBottom: 6 }}>Correo electrónico</Text>
+      <TextInput
+        placeholder="ej: felipe@test.com"
+        autoCapitalize="none"
+        keyboardType="email-address"
+        value={email}
+        onChangeText={setEmail}
+        style={{
+          borderWidth: 1,
+          borderColor: '#333',
+          borderRadius: 8,
+          padding: 12,
+          marginBottom: 16,
+        }}
+      />
 
-            <TouchableOpacity
-              style={[styles.boton, { backgroundColor: theme.primary }]}
-              onPress={handleLogin}
-            >
-              {cargandoLogin ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.botonTexto}>Entrar</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </View>
-    </ImageBackground>
+      {/* PASSWORD */}
+      <Text style={{ marginBottom: 6 }}>Contraseña</Text>
+      <TextInput
+        placeholder="Contraseña"
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+        style={{
+          borderWidth: 1,
+          borderColor: '#333',
+          borderRadius: 8,
+          padding: 12,
+          marginBottom: 20,
+        }}
+      />
+
+      {/* ERROR */}
+      {error && (
+        <Text style={{ color: 'red', marginBottom: 12 }}>
+          {error}
+        </Text>
+      )}
+
+      {/* BOTÓN */}
+      <TouchableOpacity
+        onPress={handleLogin}
+        disabled={loading}
+        style={{
+          backgroundColor: '#1e90ff',
+          padding: 14,
+          borderRadius: 10,
+          alignItems: 'center',
+        }}
+      >
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={{ color: '#fff', fontSize: 16 }}>
+            Entrar
+          </Text>
+        )}
+      </TouchableOpacity>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-  },
-  safeArea: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  cargandoContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  container: {
-    padding: 24,
-    borderRadius: 16,
-  },
-  titulo: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 30,
-    textAlign: 'center',
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 6,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 6,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 20,
-  },
-  boton: {
-    padding: 14,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  botonTexto: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-});

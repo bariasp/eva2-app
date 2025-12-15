@@ -1,123 +1,190 @@
-import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useTareas, Tarea } from '../../context/TareasContext';
-import { useAuth } from '../../context/AuthContext';
-import TareItem from '../../components/TareItem';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import { useEffect } from 'react';
-import { useTheme } from '../useTheme';
+import { router } from 'expo-router';
+import { useTareas } from '../../context/TareasContext';
 
 export default function TareasScreen() {
-  const router = useRouter();
-
-  const { tareas, eliminarTarea } = useTareas();
-  const { user, logout } = useAuth();
-  const { theme } = useTheme();
-
-  const handleDelete = (id: string) => {
-    eliminarTarea(id);
-  };
+  const {
+    tareas,
+    loading,
+    fetchTareas,
+    eliminarTarea,
+    completarTarea,
+  } = useTareas();
 
   useEffect(() => {
-    if (!user) {
-      router.replace('../index');
-    }
-  }, [user]);
+    fetchTareas();
+  }, []);
 
-  if (!user) {
-    return null;
-  }
-
-  const tareasUsuario = tareas.filter((t) => t.userId === user.id);
-
-  const handleLogout = async () => {
-    await logout();
-    router.replace('/');
+  const handleEliminar = (id: string) => {
+    Alert.alert(
+      'Eliminar tarea',
+      '¿Seguro que deseas eliminar esta tarea?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => eliminarTarea(id) },
+      ]
+    );
   };
 
-  const renderItem = ({ item }: { item: Tarea }) => (
-    <TareItem
-      tarea={item}
-      onPress={() => router.push(`/detalle-tarea/${item.id}`)}
-      onDelete={() => handleDelete(item.id)}
-    />
+  const renderItem = ({ item }: any) => (
+    <View style={styles.item}>
+      <Text
+        style={[
+          styles.titulo,
+          item.completed && styles.tituloCompletado,
+        ]}
+      >
+        {item.titulo}
+      </Text>
+
+      {item.descripcion ? (
+        <Text style={styles.descripcion}>{item.descripcion}</Text>
+      ) : null}
+
+      <View style={styles.actions}>
+        {!item.completed && (
+          <TouchableOpacity onPress={() => completarTarea(item.id)}>
+            <Text style={styles.completeText}>Completar</Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity onPress={() => handleEliminar(item.id)}>
+          <Text style={styles.deleteText}>Eliminar</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 
-  return (
-    <SafeAreaView
-      style={[styles.safeArea, { backgroundColor: theme.background }]}
-    >
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <View style={styles.header}>
-          <Text style={[styles.titulo, { color: theme.text }]}>
-            Tareas de {user.nombre}
-          </Text>
-
-          <TouchableOpacity
-            style={[styles.logoutBtn, { borderColor: theme.danger }]}
-            onPress={handleLogout}
-          >
-            <Text style={[styles.logoutText, { color: theme.danger }]}>
-              Cerrar sesión
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {tareasUsuario.length === 0 ? (
-          <Text style={[styles.vacio, { color: theme.textSecondary }]}>
-            No tienes tareas registradas todavía.
-          </Text>
-        ) : (
-          <FlatList
-            data={tareasUsuario}
-            keyExtractor={(item) => item.id}
-            renderItem={renderItem}
-            contentContainerStyle={{
-              gap: 16,
-              paddingTop: 16,
-              paddingBottom: 16,
-            }}
-          />
-        )}
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#1e90ff" />
+        <Text style={styles.loadingText}>Cargando tareas...</Text>
       </View>
-    </SafeAreaView>
+    );
+  }
+
+  if (!loading && tareas.length === 0) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.emptyText}>No hay tareas aún</Text>
+
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => router.push('/crear-tarea')}
+        >
+          <Text style={styles.addText}>Crear tarea</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={tareas}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        contentContainerStyle={{ paddingBottom: 80 }}
+      />
+
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push('/crear-tarea')}
+      >
+        <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f5f5f5', // se sobreescribe con theme.background
-  },
-
   container: {
     flex: 1,
+    backgroundColor: '#0b0b0b',
     padding: 16,
   },
-  header: {
-    marginBottom: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  center: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#0b0b0b',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#aaa',
+  },
+  emptyText: {
+    color: '#aaa',
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  item: {
+    backgroundColor: '#121212',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
   },
   titulo: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
-  logoutBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    borderWidth: 1,
+  tituloCompletado: {
+    textDecorationLine: 'line-through',
+    color: '#777',
   },
-  logoutText: {
+  descripcion: {
+    color: '#aaa',
+    marginTop: 6,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 10,
+  },
+  completeText: {
+    color: '#4caf50',
     fontWeight: '600',
   },
-  vacio: {
-    marginTop: 20,
-    textAlign: 'center',
-    fontSize: 16,
-    color: '#666',
+  deleteText: {
+    color: '#ff5c5c',
+    fontWeight: '600',
+  },
+  addButton: {
+    backgroundColor: '#1e90ff',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  addText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: '#1e90ff',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+  },
+  fabText: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '700',
   },
 });
-
